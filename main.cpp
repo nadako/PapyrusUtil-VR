@@ -23,7 +23,38 @@ SKSESerializationInterface* g_serialization = NULL;
 SKSEPapyrusInterface* g_papyrus = NULL;
 //SKSETrampolineInterface* g_trampoline = NULL;
 
+#ifdef IS_VR
+#include "SkyrimVRESLAPI_SKSE.h"
+
+SKSEMessagingInterface* g_messaging = NULL;
+
+static void OnSKSEMessage(SKSEMessagingInterface::Message* message) {
+	if (message->type != SKSEMessagingInterface::kMessage_DataLoaded) return;
+
+	if (SkyrimVRESLPluginAPI::GetSkyrimVRESLInterface001(g_pluginHandle, g_messaging)) {
+		_MESSAGE("SkyrimVRESL interface found, build %u", g_SkyrimVRESLInterface->GetBuildNumber());
+	} else {
+		_MESSAGE("SkyrimVRESL not detected");
+	}
+}
+#endif
+
 extern "C" {
+#ifdef IS_VR
+	__declspec(dllexport) bool SKSEPlugin_Query(const SKSEInterface* skse, PluginInfo* info) {
+		info->infoVersion = PluginInfo::kInfoVersion;
+		info->name = "PapyrusUtil";
+		info->version = 2;
+
+		if (skse->isEditor) {
+			return false;
+		}
+		if (skse->runtimeVersion != RUNTIME_VR_VERSION_1_4_15) {
+			return false;
+		}
+		return true;
+	}
+#else
 	__declspec(dllexport) SKSEPluginVersionData SKSEPlugin_Version =
 	{
 
@@ -41,6 +72,7 @@ extern "C" {
 
 		0,	// works with any version of the script extender. you probably do not need to put anything here
 	};
+#endif
 
 
 	bool SKSEPlugin_Load(const SKSEInterface* skse) {
@@ -53,7 +85,11 @@ extern "C" {
 		}
 
 		// Set log path
+#ifdef IS_VR
+		gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Skyrim VR\\SKSE\\PapyrusUtilDev.log");
+#else
 		gLog.OpenRelative(CSIDL_MYDOCUMENTS, "\\My Games\\Skyrim Special Edition\\SKSE\\PapyrusUtilDev.log");
+#endif
 		gLog.SetPrintLevel(IDebugLog::kLevel_DebugMessage);
 		gLog.SetLogLevel(IDebugLog::kLevel_DebugMessage);
 		_MESSAGE("Loading Version: %d", (int)PAPYRUSUTIL_VERSION);
@@ -96,6 +132,14 @@ extern "C" {
 			return false;
 		}
 
+#ifdef IS_VR
+		g_messaging = (SKSEMessagingInterface*)skse->QueryInterface(kInterface_Messaging);
+		if (!g_messaging) {
+			_MESSAGE("couldn't get messaging interface");
+			return false;
+		}
+		g_messaging->RegisterListener(g_pluginHandle, "SKSE", OnSKSEMessage);
+#endif
 
 		/*if (!g_branchTrampoline.Create(1024 * 64))
 		{

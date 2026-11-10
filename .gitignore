@@ -33,3 +33,7 @@ BuildLog.htm
 
 # cmake
 build/*
+
+/.xmake
+/compile_commands.json
+/.idea

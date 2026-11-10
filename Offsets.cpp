@@ -13,6 +13,16 @@ namespace Plugin {
 
 	bool InitializeOffsets()
 	{
+#ifdef IS_VR
+		Offset_ToggleFreeCam = 0x876880;
+		Offset_IsValidPackage = 0x44A990;
+		Offset_PackageStartOrig = 0x136FE0;
+		Offset_PackageEndOrig = 0xC6DD50;
+		Offset_PackageStart_Enter = 0x5E3800 + 0x47;
+		Offset_PackageEnd_Enter = 0x962B30 + 0x1BD;
+		return true;
+#endif
+
 		VersionDb db;
 
 		// Load database with current executable version.

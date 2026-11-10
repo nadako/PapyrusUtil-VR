@@ -14,9 +14,26 @@
 
 #include "skse64/Serialization.h"
 
+#ifdef IS_VR
+#include "SkyrimVRESLAPI_SKSE.h"
+#endif
+
 
 namespace Forms {
 
+	static UInt32 GetModPartialIndex(const ModInfo* modInfo) {
+#ifdef IS_VR
+		if (modInfo->modIndex == 0xFE) return 0xFE000 | modInfo->lightIndex;
+#endif
+		return modInfo->GetPartialIndex();
+	}
+
+	static UInt32 GetModFormID(const ModInfo* modInfo, UInt32 formLower) {
+#ifdef IS_VR
+		if (modInfo->modIndex == 0xFE) return 0xFE000000 | (((UInt32)modInfo->lightIndex) << 12) | (formLower & 0x00000FFF);
+#endif
+		return modInfo->GetFormID(formLower);
+	}
 
 
 	static std::unordered_map<UInt32, UInt32> s_savedModIndexMap;
@@ -45,7 +62,7 @@ namespace Forms {
 
 			const ModInfo * modInfo = dhand->LookupModByName(name);
 			if (modInfo) {
-				UInt32 newIndex = modInfo->GetPartialIndex();
+				UInt32 newIndex = GetModPartialIndex(modInfo);
 				s_savedModIndexMap[i] = newIndex;
 				_MESSAGE("\t(%d -> %d)\t%s", i, newIndex, &name);
 			}
@@ -140,7 +157,7 @@ namespace Forms {
 
 			const ModInfo * modInfo = dhand->LookupModByName(name);
 			if (modInfo) {
-				newIndex = modInfo->GetPartialIndex();
+				newIndex = GetModPartialIndex(modInfo);
 			}
 
 			s_savedModIndexMap[oldIndex] = newIndex;
@@ -191,7 +208,7 @@ namespace Forms {
 		DataHandler * dhand = DataHandler::GetSingleton();
 		const ModInfo * modInfo = dhand->LookupModByName(name);
 		if (modInfo) {
-			UInt32 newIndex = modInfo->GetPartialIndex();
+			UInt32 newIndex = GetModPartialIndex(modInfo);
 		}
 		else {
 			return 0xFF;
@@ -335,12 +352,27 @@ namespace Forms {
 
 		// Set Mod name
 		UInt32 index = GetModIndex(obj);
+#ifdef IS_VR
+		const SkyrimVRESLPluginAPI::TESFileCollection* eslFiles = g_SkyrimVRESLInterface ? g_SkyrimVRESLInterface->GetCompiledFileCollection() : NULL;
+#endif
 		if (index < 0xFF) {
 			// esp & esm objects
 			DataHandler *Data = DataHandler::GetSingleton();
+#ifdef IS_VR
+			ModInfo *modInfo = eslFiles ? eslFiles->files.entries[index] : Data->modList.loadedMods[index];
+#else
 			ModInfo *modInfo = Data->modList.loadedMods[index];
+#endif
 			ss << modInfo->name;
 		}
+#ifdef IS_VR
+		else if (index > 0xFF && eslFiles) {
+			// esl objects
+			UInt32 light = index & 0x00FFF;
+			ModInfo *modInfo = eslFiles->smallFiles.entries[light];
+			ss << modInfo->name;
+		}
+#else
 		else if (index > 0xFF) {
 			// esl objects
 			UInt32 light = index & 0x00FFF;
@@ -348,6 +380,7 @@ namespace Forms {
 			ModInfo *modInfo = Data->modList.loadedCCMods[light];
 			ss << modInfo->name;
 		}
+#endif
 		else {
 			// Temp objects - save form type as part of modname
 			ss << (int)obj->formType << ".FF";
@@ -415,7 +448,7 @@ namespace Forms {
 			const ModInfo * modInfo = dhand->LookupModByName(mod.c_str());
 
 			if (modInfo && modInfo->IsActive()) {
-				obj = modInfo->GetFormID(obj);
+				obj = GetModFormID(modInfo, obj);
 				//_MESSAGE("\tObj: 0x%X", (int)obj);
 			}
 			else {
